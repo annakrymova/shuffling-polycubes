@@ -230,5 +230,14 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-!/MAYA_pr.txt
-!/MAYA.txt
+.idea/.gitignore
+.idea/Shuffling Polycubes.iml
+.idea/inspectionProfiles/
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+10/
+4/
+8/
+MAYA.txt
+MAYA_pr.txt
