@@ -8,6 +8,7 @@ from numpy import linalg as la
 import collections
 import matplotlib.patches as mpatches
 from scipy.optimize import curve_fit
+from line_profiler import LineProfiler
 
 def read_value(arr):
     while True:
@@ -44,12 +45,12 @@ def grow_model(size, t, shape):
         tile_selected = random.choice(process)
         # new_perimeter = perimeter.copy()
         process.remove(tile_selected)
-        neighb = neighbours(tile_selected)
+        neighb = neighbours(tile_selected, sh)
         removed = []
         for x in neighb:
             if x in perimeter:
                 remains = False
-                for y in neighbours(x):
+                for y in neighbours(x, sh):
                     if y in process:
                         remains = True
                         break
@@ -57,28 +58,12 @@ def grow_model(size, t, shape):
                     perimeter.remove(x)
                     removed += [x]
         perimeter += [tile_selected]
-        f = open("MAYA.txt", "w+")
-        f.write("import maya.cmds as cmds \nimport math as m \n"
-                "import os,sys \nEden = " + str(perimeter)+"\nt = len(Eden)"
-                "\nfor i in range(0,t):\n\taux = cmds.polyCube()"
-                "\n\tcmds.move(Eden[i][0],Eden[i][1],Eden[i][2],aux)")
-        f.close()
-
         new_tile = random.choice(perimeter)
         process += [new_tile]
 
-        f = open("MAYA_pr.txt", "w+")
-        f.write("import maya.cmds as cmds \nimport math as m \n"
-                "import os,sys \nEden = " + str(process)+"\nt = len(Eden)"
-                "\nfor i in range(0,t):\n\taux = cmds.polyCube()"
-                "\n\tcmds.move(Eden[i][0],Eden[i][1],Eden[i][2],aux)")
-        f.close()
-
-        connected = (len(return_cc(process, shift())) == 1)
-        connected_bfs = is_connected(process, tile_selected, sh, new_tile)
-        if connected != connected_bfs:
-            a = 10
-        if not connected:
+        connected_bfs = is_connected(process, tile_selected, new_tile, sh)
+        # connected = len(return_cc(process, sh)) == 1
+        if not connected_bfs:
             """put cube back on its place"""
             process += [tile_selected]
             process.remove(new_tile)
@@ -90,14 +75,12 @@ def grow_model(size, t, shape):
         model[new_tile][0] = 1
         perimeter.remove(new_tile)
 
-        for x in neighbours(new_tile):
+        for x in neighbours(new_tile, sh):
             if x not in process and x not in perimeter:
                 perimeter += [x]
                 model[x] = [0]
         steps += 1
         pbar.update(1)
-
-    a = 10
     return process
 
 def start_worm(s):
@@ -144,44 +127,25 @@ def start_cube(s):
         model[x] = [0]
     return model, perimeter, process
 
-def neighbours(x):
-    neighb = [(x[0]+1, x[1], x[2]), (x[0]-1, x[1], x[2]), (x[0], x[1]+1, x[2]), (x[0], x[1]-1, x[2]), (x[0], x[1], x[2]+1), (x[0], x[1], x[2]-1)]
+def neighbours(tile, sh):
+    neighb = []
+    for x in sh:
+        neighb.append(tuple(tile+x))
     return neighb
 
 """CONNECTED COMPONENTS"""
-def is_connected(tiles, tile_selected, sh, new_tile):
-    cc = [[x] for x in neighbours(tile_selected) if x in tiles]
+def is_connected(tiles, tile_selected, new_tile, sh):
+    cc = [[x] for x in neighbours(tile_selected, sh) if x in tiles]
     num_cc = len(cc)
     merged = [False]*num_cc
     finished = [False]*num_cc
     num_iter = 0
-    visited = dict(zip(tiles, [False]*len(tiles)))
     connected = False
-    # while len(visited) < len(tiles):
-    #     for i, x in enumerate(cc):
-    #         if merged[i] == 0:
-    #             not_visited = [c for c in x if not visited[c]]
-    #             cube = random.choice(not_visited)
-    #             neighb = [y for y in neighbours(cube) if y in tiles]
-    #             for z in neighb:
-    #                 if z in list(itertools.chain.from_iterable([v for k, v in enumerate(cc) if k != i])):
-    #                     merged[i] = 1
-    #             cc[i] += neighb
-    #             for q in neighb:
-    #                 if q not in visited:
-    #                     visited += [q]
-    #             visited[cube] = True
-    #         if sum(merged) >= num_cc - 1:
-    #             connected = True
-    #             break
-    #     if sum(merged) >= num_cc - 1:
-    #         connected = True
-    #         break
-    while sum(finished) < num_cc:
+    while sum(finished) < num_cc and sum(merged) < num_cc - 1:
         for i in range(num_cc):
             if not merged[i] and not finished[i]:
                 cube_selected = cc[i][num_iter]
-                for x in [y for y in neighbours(cube_selected) if y in tiles]:
+                for x in [y for y in neighbours(cube_selected, sh) if y in tiles]:
                     if x not in cc[i]:
                         cc[i] += [x]
                     for j in range(num_cc):
@@ -193,31 +157,29 @@ def is_connected(tiles, tile_selected, sh, new_tile):
         num_iter += 1
     if sum(merged) == num_cc-1:
         connected = True
-
-    if connected != (len(return_cc(tiles, shift())) == 1):
-        a = 10
     return connected
 
-def add_neighbours_bfs(cc, i, iterations, num_cc, merged, finished, tiles):
-    return cc, merged, finished
-
+"""CONNECTED COMPONENTS"""
 def return_cc(tiles, shift):
+    # pbar = tqdm(total=len(tiles))
+    pbar = 0
     cc = []
     visited = dict(zip(tiles, [False]*len(tiles)))
     for tile in tiles:
         if not visited[tile]:
             temp = []
-            cc.append(bfs(tiles, temp, tile, visited, shift))
+            cc.append(bfs(tiles, temp, tile, visited, shift, pbar))
     return cc
 
-def bfs(tiles, temp, tile, visited, shift):
+def bfs(tiles, temp, tile, visited, shift, pbar):
     visited[tile] = True
+    # pbar.update(1)
     temp.append(tile)
     nearest_tiles = np.array(tile)+shift
     neighbours = [tuple(x) for x in nearest_tiles if tuple(x) in tiles]
     for v in neighbours:
         if not visited[v]:
-            temp = bfs(tiles, temp, v, visited, shift)
+            temp = bfs(tiles, temp, v, visited, shift, pbar)
     return temp
 
 def shift():
@@ -230,5 +192,16 @@ def shift():
         y[i] = -1
         shift.append(y)
     return shift
+
+def shift():
+    sh = []
+    for i in range(3):
+        x = np.zeros((3,), dtype=int)
+        x[i] = 1
+        sh.append(x)
+        y = np.zeros((3,), dtype=int)
+        y[i] = -1
+        sh.append(y)
+    return sh
 
 
