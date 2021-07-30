@@ -6,7 +6,6 @@ from pathlib import Path
 from datetime import datetime
 from functions import read_value, read_int, grow_model
 import cProfile
-from line_profiler import LineProfiler
 
 print('Welcome to Shuffling Polycubes Model!')
 
@@ -38,7 +37,7 @@ size = read_int()
 
 print('How many shuffles fo you want?')
 # t = read_int()
-t = 10*size**3
+t = (10**3)*size
 
 # lp = LineProfiler()
 # lp_wrapper = lp(grow_model)

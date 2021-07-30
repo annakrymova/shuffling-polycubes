@@ -8,7 +8,7 @@ from numpy import linalg as la
 import collections
 import matplotlib.patches as mpatches
 from scipy.optimize import curve_fit
-from line_profiler import LineProfiler
+
 
 def read_value(arr):
     while True:
@@ -20,6 +20,7 @@ def read_value(arr):
         except ValueError:
             print("Oops!  That was no valid number.  Try again...")
     return x
+
 
 def read_int():
     while True:
